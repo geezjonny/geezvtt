@@ -1,0 +1,7 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GeezVTT Import</title><link rel="stylesheet" href="src/style.css"></head><body><main>
+<h2>GeezVTT <span>DD2VTT importer</span></h2>
+<label class="drop" for="file">Select a <strong>.dd2vtt</strong> or <strong>.uvtt</strong> file<input type="file" id="file" accept=".dd2vtt,.uvtt,.df2vtt,application/json"></label>
+<div id="details">Choose a file to inspect its map, walls, doors, and lights.</div>
+<fieldset><legend>Import</legend><label><input id="walls" type="checkbox" checked> Line-of-sight walls</label><label><input id="objects" type="checkbox" checked> Object occluders</label><label><input id="doors" type="checkbox" checked> Closed portals (doors)</label><label><input id="lights" type="checkbox" checked> Light sources</label></fieldset>
+<button id="create" disabled>Create Owlbear scene</button><p id="status" role="status"></p><small>Creates a new scene, so existing maps remain untouched. All room participants need this extension enabled for the vision geometry to render locally.</small>
+</main><script type="module" src="src/main.js"></script></body></html>
