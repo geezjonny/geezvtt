@@ -15,6 +15,40 @@ const $addGeometry = document.getElementById("addGeometry");
 let parsed = null;
 let mapName = "Imported Map";
 let owlbearReady = false;
+let busy = false;
+let currentStage = "idle";
+
+function describeError(error) {
+  const seen = new WeakSet();
+  const compact = (value) => JSON.stringify(value, (key, item) => {
+    if (typeof item === "bigint") return String(item);
+    if (item && typeof item === "object") {
+      if (seen.has(item)) return "[circular]";
+      seen.add(item);
+    }
+    return item;
+  }, 2);
+  try {
+    if (typeof error === "string") return error;
+    if (error && typeof error === "object") {
+      const fields = {};
+      for (const key of ["message", "name", "code", "status", "statusText",
+                         "reason", "error", "details", "data", "cause", "stack"]) {
+        if (error[key] !== undefined) fields[key] = error[key];
+      }
+      for (const key of Object.keys(error)) fields[key] ??= error[key];
+      const result = compact(fields);
+      return result && result !== "{}" ? result : String(error);
+    }
+    return String(error);
+  } catch (_) {
+    return String(error);
+  }
+}
+function mark(stage) {
+  currentStage = stage;
+  setStatus(stage + "…");
+}
 
 function setStatus(text) {
   $status.textContent = text;
@@ -30,7 +64,7 @@ function selectedOptions() {
 }
 
 function refreshButtons() {
-  const enabled = owlbearReady && !!parsed;
+  const enabled = owlbearReady && !!parsed && !busy;
   $createScene.disabled = !enabled;
   $addGeometry.disabled = !enabled;
 }

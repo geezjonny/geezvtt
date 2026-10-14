@@ -35,3 +35,12 @@ Then the manifest URL will be:
 - `src/main.js` - Owlbear logic
 - `src/dd2vtt.js` - DD2VTT parser helpers
 - `src/style.css` - styling
+
+## Diagnosing an import failure
+
+In v1.2 the extension displays the failure stage and Owlbear's structured error response.
+First try regular **Create new scene**. If it fails, enable
+**Diagnostic test: create map image only** and retry. If map-only works,
+the failure is likely caused by a wall or light item; if both fail, the
+scene/image upload or Owlbear storage permission is more likely responsible.
+Copy the complete new error message to the developer.
