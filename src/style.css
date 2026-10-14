@@ -1,1 +1,76 @@
-*{box-sizing:border-box}body{margin:0;font:14px system-ui,Arial,sans-serif;background:#161a24;color:#f2f4fa}main{padding:17px}h2{font-size:20px;margin:0 0 18px}h2 span{font-size:11px;color:#aab5c7;font-weight:400;display:block;margin-top:4px}.drop{display:block;padding:24px 14px;border:1px dashed #677692;background:#252b3a;border-radius:11px;text-align:center;cursor:pointer}.drop strong{color:#9cbbff}.drop input{display:block;width:100%;margin-top:14px;font-size:12px}#details{color:#b8c6da;margin:16px 0;line-height:1.6}fieldset{border:1px solid #46516b;border-radius:8px;margin:10px 0 15px;padding:10px}legend{color:#becbe0}fieldset label{display:block;margin:9px 0}input[type=checkbox]{accent-color:#8c9eff}button{border:0;border-radius:8px;background:#90a9ff;color:#131a30;width:100%;padding:13px;font-size:14px;font-weight:700;cursor:pointer}button:disabled{opacity:.35;cursor:default}#status{min-height:35px;overflow-wrap:anywhere;color:#b8d7a8}small{line-height:1.5;color:#a3acc0;display:block}
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+body {
+  margin: 0;
+}
+.app {
+  padding: 14px;
+}
+h1 {
+  margin: 0 0 4px;
+  font-size: 1.35rem;
+}
+.sub {
+  margin: 0 0 14px;
+  opacity: 0.8;
+}
+.panel {
+  border: 1px solid rgba(127,127,127,0.35);
+  border-radius: 10px;
+  padding: 10px;
+  margin: 0 0 12px;
+}
+.panel h2 {
+  margin: 0 0 8px;
+  font-size: 0.98rem;
+}
+.file-picker {
+  display: block;
+  margin-bottom: 12px;
+}
+.file-picker span {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+input[type="file"] {
+  width: 100%;
+}
+label {
+  display: block;
+  margin: 6px 0;
+}
+pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  font-size: 0.9rem;
+}
+.actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+button {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(127,127,127,0.35);
+  cursor: pointer;
+  font: inherit;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.status {
+  min-height: 2.5em;
+  margin: 0 0 12px;
+}
+.notes ul {
+  margin: 0;
+  padding-left: 18px;
+}

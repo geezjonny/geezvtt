@@ -1,53 +1,175 @@
-import OBR, { buildImageUpload, buildSceneUpload, buildCurve } from 'https://esm.sh/@owlbear-rodeo/sdk@3.1.0';
+import OBR, {
+  buildImageUpload,
+  buildSceneUpload,
+  buildWall,
+  buildLight,
+} from "https://esm.sh/@owlbear-rodeo/sdk@3.1.0";
+import { parseDd2vtt, imageDataUrlToFile, worldPoint } from "./dd2vtt.js";
 
-import { convert, importRecords } from './uvtt.js';
+const $file = document.getElementById("file");
+const $details = document.getElementById("details");
+const $status = document.getElementById("status");
+const $createScene = document.getElementById("createScene");
+const $addGeometry = document.getElementById("addGeometry");
 
-const fileInput=document.querySelector('#file'), details=document.querySelector('#details');
-const status=document.querySelector('#status'), create=document.querySelector('#create');
-let parsed=null, fileName='';
-const say=(t)=>{status.textContent=t;};
+let parsed = null;
+let mapName = "Imported Map";
+let owlbearReady = false;
 
-fileInput.addEventListener('change',async()=>{
-  create.disabled=true; parsed=null;
-  const file=fileInput.files?.[0]; if(!file)return;
-  fileName=file.name.replace(/\.(dd2vtt|df2vtt|uvtt)$/i,'');
-  try {
-    parsed=convert(JSON.parse(await file.text()));
-    details.textContent=`${parsed.width} × ${parsed.height} px · ${parsed.dpi} px/square · ${parsed.walls.length} wall paths · ${parsed.objects.length} object paths · ${parsed.doors.length} portals · ${parsed.lights.length} lights`;
-    create.disabled=!OBR.isAvailable; say(OBR.isAvailable?'Ready to import.':'Open this extension inside Owlbear Rodeo to import.');
-  }catch(e){ details.textContent='Invalid map: '+e.message; say(''); }
-});
+function setStatus(text) {
+  $status.textContent = text;
+}
 
-create.addEventListener('click',async()=>{
-  if(!parsed)return;
-  create.disabled=true; say('Preparing embedded image…');
-  try {
-    const {image,dpi,width,height}=parsed;
-    // Image data lives in the file: it is not uploaded to an external image host.
-    const blob=await (await fetch(image)).blob();
-    const ext=blob.type==='image/jpeg'?'jpg':blob.type==='image/webp'?'webp':'png';
-    const mapFile=new File([blob],`${fileName}.${ext}`,{type:blob.type});
-    const imageUpload=buildImageUpload(mapFile).dpi(dpi).name(fileName).build();
-    const selected={walls:document.querySelector('#walls').checked,objects:document.querySelector('#objects').checked,doors:document.querySelector('#doors').checked,lights:document.querySelector('#lights').checked};
-    const records=importRecords(parsed,selected);
-    // Metadata is attached to invisible scene items. This survives scene reopening.
-    // Keep each item small enough to avoid unbounded per-item metadata.
-    const items=[];
-    for(let i=0;i<records.length;i+=50){
-      const chunk=records.slice(i,i+50);
-      const anchor=buildCurve().points([{x:0,y:0},{x:0.01,y:0.01}])
-        .name('GeezVTT geometry '+(Math.floor(i/50)+1))
-        .layer('DRAWING').visible(false).disableHit(true).locked(true)
-        .metadata({'geezvtt.io/records':chunk,'geezvtt.io/version':1}).build();
-      items.push(anchor);
+function selectedOptions() {
+  return {
+    walls: document.getElementById("importWalls").checked,
+    objects: document.getElementById("importObjects").checked,
+    doors: document.getElementById("importDoors").checked,
+    lights: document.getElementById("importLights").checked,
+  };
+}
+
+function refreshButtons() {
+  const enabled = owlbearReady && !!parsed;
+  $createScene.disabled = !enabled;
+  $addGeometry.disabled = !enabled;
+}
+
+function summarize(parsedMap) {
+  return [
+    `Format: ${parsedMap.format ?? "unknown"}`,
+    `Map: ${parsedMap.widthPixels} × ${parsedMap.heightPixels} px`,
+    `Grid: ${parsedMap.dpi} px per cell`,
+    `Origin: (${parsedMap.mapOrigin.x}, ${parsedMap.mapOrigin.y})`,
+    `line_of_sight: ${parsedMap.walls.length}`,
+    `objects_line_of_sight: ${parsedMap.objectWalls.length}`,
+    `closed portals: ${parsedMap.doors.length}`,
+    `lights: ${parsedMap.lights.length}`,
+  ].join("\n");
+}
+
+function buildImportedItems(parsedMap, options, sourceName) {
+  const items = [];
+  const meta = { "com.geezvtt.dd2vtt/import": sourceName };
+
+  const addWallPaths = (paths) => {
+    for (const path of paths) {
+      items.push(
+        buildWall()
+          .points(path.map((p) => worldPoint(p, parsedMap)))
+          .doubleSided(true)
+          .blocking(true)
+          .metadata(meta)
+          .build()
+      );
     }
-    say('Uploading scene and map to Owlbear…');
-    const scene=buildSceneUpload().name(fileName).baseMap(imageUpload).items(items)
-      .gridType('SQUARE').gridOpacity(0.18).fogFilled(true).build();
-    await OBR.assets.uploadScenes([scene]);
-    say(`Scene uploaded. Open “${fileName}” in Owlbear; ${records.length} geometry records included.`);
-  }catch(e){ console.error(e); say('Import failed: '+(e?.message||String(e))); }
-  finally{create.disabled=false;}
-});
+  };
 
-OBR.onReady(()=>{if(parsed)create.disabled=false;});
+  if (options.walls) addWallPaths(parsedMap.walls);
+  if (options.objects) addWallPaths(parsedMap.objectWalls);
+  if (options.doors) addWallPaths(parsedMap.doors.map((door) => door.points));
+
+  if (options.lights) {
+    for (const light of parsedMap.lights) {
+      items.push(
+        buildLight()
+          .position(worldPoint(light.position, parsedMap))
+          .attenuationRadius(light.range * parsedMap.dpi)
+          .sourceRadius(Math.max(2, parsedMap.dpi * 0.05))
+          .falloff(0.25)
+          .metadata(meta)
+          .build()
+      );
+    }
+  }
+
+  return items;
+}
+
+async function readSelectedFile() {
+  const file = $file.files?.[0];
+  parsed = null;
+  refreshButtons();
+
+  if (!file) {
+    $details.textContent = "No file loaded.";
+    return;
+  }
+
+  mapName = file.name.replace(/\.(dd2vtt|df2vtt|uvtt|json)$/i, "") || "Imported Map";
+
+  try {
+    const text = await file.text();
+    parsed = parseDd2vtt(JSON.parse(text));
+    $details.textContent = summarize(parsed);
+    setStatus(owlbearReady ? "Ready to import." : "Open this extension inside Owlbear Rodeo.");
+  } catch (error) {
+    parsed = null;
+    $details.textContent = `Error: ${error?.message || String(error)}`;
+    setStatus("Could not parse file.");
+  }
+
+  refreshButtons();
+}
+
+async function createScene() {
+  if (!parsed) return;
+  const options = selectedOptions();
+
+  try {
+    setStatus("Preparing embedded image…");
+    const imageFile = await imageDataUrlToFile(parsed.image, mapName);
+    const mapUpload = buildImageUpload(imageFile)
+      .name(mapName)
+      .dpi(parsed.dpi)
+      .offset({ x: 0, y: 0 })
+      .build();
+
+    const items = buildImportedItems(parsed, options, mapName);
+
+    setStatus("Uploading scene to Owlbear…");
+    const scene = buildSceneUpload()
+      .name(mapName)
+      .gridType("SQUARE")
+      .gridOpacity(0.18)
+      .fogFilled(true)
+      .baseMap(mapUpload)
+      .items(items)
+      .build();
+
+    await OBR.assets.uploadScenes([scene]);
+    setStatus(`Created scene "${mapName}" with ${items.length} imported item(s).`);
+  } catch (error) {
+    console.error(error);
+    setStatus(`Create scene failed: ${error?.message || String(error)}`);
+  }
+}
+
+async function addGeometryToCurrentScene() {
+  if (!parsed) return;
+  const options = selectedOptions();
+
+  try {
+    setStatus("Adding walls and lights to current scene…");
+    const items = buildImportedItems(parsed, options, mapName);
+    if (!items.length) {
+      setStatus("Nothing selected to import.");
+      return;
+    }
+    await OBR.scene.items.addItems(items);
+    setStatus(`Added ${items.length} item(s) to the current scene.`);
+  } catch (error) {
+    console.error(error);
+    setStatus(`Current scene import failed: ${error?.message || String(error)}`);
+  }
+}
+
+$file.addEventListener("change", readSelectedFile);
+$createScene.addEventListener("click", createScene);
+$addGeometry.addEventListener("click", addGeometryToCurrentScene);
+
+OBR.onReady(() => {
+  owlbearReady = true;
+  setStatus(parsed ? "Ready to import." : "Choose a DD2VTT file.");
+  refreshButtons();
+});

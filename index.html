@@ -1,7 +1,51 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GeezVTT Import</title><link rel="stylesheet" href="src/style.css"></head><body><main>
-<h2>GeezVTT <span>DD2VTT importer</span></h2>
-<label class="drop" for="file">Select a <strong>.dd2vtt</strong> or <strong>.uvtt</strong> file<input type="file" id="file" accept=".dd2vtt,.uvtt,.df2vtt,application/json"></label>
-<div id="details">Choose a file to inspect its map, walls, doors, and lights.</div>
-<fieldset><legend>Import</legend><label><input id="walls" type="checkbox" checked> Line-of-sight walls</label><label><input id="objects" type="checkbox" checked> Object occluders</label><label><input id="doors" type="checkbox" checked> Closed portals (doors)</label><label><input id="lights" type="checkbox" checked> Light sources</label></fieldset>
-<button id="create" disabled>Create Owlbear scene</button><p id="status" role="status"></p><small>Creates a new scene, so existing maps remain untouched. All room participants need this extension enabled for the vision geometry to render locally.</small>
-</main><script type="module" src="src/main.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GeezVTT DD2VTT Importer</title>
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <main class="app">
+    <h1>GeezVTT</h1>
+    <p class="sub">Import a <code>.dd2vtt</code> file into Owlbear Rodeo.</p>
+
+    <label class="file-picker">
+      <span>Choose DD2VTT file</span>
+      <input id="file" type="file" accept=".dd2vtt,.df2vtt,.uvtt,.json" />
+    </label>
+
+    <section class="panel">
+      <h2>Import options</h2>
+      <label><input id="importWalls" type="checkbox" checked /> line_of_sight</label>
+      <label><input id="importObjects" type="checkbox" checked /> objects_line_of_sight</label>
+      <label><input id="importDoors" type="checkbox" checked /> closed portals as walls</label>
+      <label><input id="importLights" type="checkbox" checked /> lights</label>
+    </section>
+
+    <section class="panel">
+      <h2>Map info</h2>
+      <pre id="details">No file loaded.</pre>
+    </section>
+
+    <section class="actions">
+      <button id="createScene" disabled>Create new scene</button>
+      <button id="addGeometry" disabled>Add walls/lights to current scene</button>
+    </section>
+
+    <p id="status" class="status">Open this extension inside Owlbear Rodeo.</p>
+
+    <section class="panel notes">
+      <h2>Notes</h2>
+      <ul>
+        <li><strong>Create new scene</strong> uploads the embedded map image and places walls/lights into the new scene.</li>
+        <li><strong>Add walls/lights to current scene</strong> does not place the base map. Use it if your map is already on the scene.</li>
+        <li>Lights use DD2VTT range converted from grid cells to Owlbear pixels.</li>
+      </ul>
+    </section>
+  </main>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
