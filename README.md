@@ -10,23 +10,12 @@ This Owlbear Rodeo extension imports `.dd2vtt` files.
 - Treats closed `portals` as walls.
 - Creates Owlbear light items from `lights`.
 
-## Important hosting step
+## Hosting and installation
 
-Before installing the extension, edit `manifest.json` and replace:
-
-- `https://YOUR-USER.github.io/YOUR-REPO/icon.svg`
-- `https://YOUR-USER.github.io/YOUR-REPO/index.html`
-
-with your actual hosted URLs.
-
-Example if your repo is `geezvtt` and your GitHub username is `geezjonny`:
-
-- `https://geezjonny.github.io/geezvtt/icon.svg`
-- `https://geezjonny.github.io/geezvtt/index.html`
-
-Then the manifest URL will be:
-
-- `https://geezjonny.github.io/geezvtt/manifest.json`
+The manifest is configured for `https://geezjonny.github.io/geezvtt/`.
+Enable GitHub Pages for this repository, then install the extension in Owlbear
+using `https://geezjonny.github.io/geezvtt/manifest.json`.
+If hosting elsewhere, update the icon and popover URLs in `manifest.json`.
 
 ## Files
 
@@ -36,6 +25,11 @@ Then the manifest URL will be:
 - `src/dd2vtt.js` - DD2VTT parser helpers
 - `src/style.css` - styling
 
+`background.html`, `src/background.js`, `src/vision.js`, and `src/uvtt.js`
+are an alternate metadata-based vision implementation. They are not connected
+to the manifest or the active importer; imports currently create wall and light
+items directly through `src/main.js`.
+
 ## Diagnosing an import failure
 
 In v1.2 the extension displays the failure stage and Owlbear's structured error response.
@@ -44,3 +38,10 @@ First try regular **Create new scene**. If it fails, enable
 the failure is likely caused by a wall or light item; if both fail, the
 scene/image upload or Owlbear storage permission is more likely responsible.
 Copy the complete new error message to the developer.
+
+## Verification
+
+Run `node --test tests/importer.test.cjs` for local importer regression checks.
+Before release, test inside Owlbear with real DD2VTT files: scene creation,
+geometry added to an open scene, nonzero map origins, lights, large maps, and
+the map-only diagnostic. Local checks do not verify Owlbear uploads or rendering.

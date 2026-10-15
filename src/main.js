@@ -17,6 +17,7 @@ let mapName = "Imported Map";
 let owlbearReady = false;
 let busy = false;
 let currentStage = "idle";
+let fileReadVersion = 0;
 
 function describeError(error) {
   const seen = new WeakSet();
@@ -67,6 +68,7 @@ function refreshButtons() {
   const enabled = owlbearReady && !!parsed && !busy;
   $createScene.disabled = !enabled;
   $addGeometry.disabled = !enabled;
+  $file.disabled = busy;
 }
 
 function summarize(parsedMap) {
@@ -121,6 +123,7 @@ function buildImportedItems(parsedMap, options, sourceName) {
 }
 
 async function readSelectedFile() {
+  const version = ++fileReadVersion;
   const file = $file.files?.[0];
   parsed = null;
   refreshButtons();
@@ -134,10 +137,12 @@ async function readSelectedFile() {
 
   try {
     const text = await file.text();
+    if (version !== fileReadVersion) return;
     parsed = parseDd2vtt(JSON.parse(text));
     $details.textContent = summarize(parsed);
     setStatus(owlbearReady ? "Ready to import." : "Open this extension inside Owlbear Rodeo.");
   } catch (error) {
+    if (version !== fileReadVersion) return;
     parsed = null;
     $details.textContent = `Error: ${error?.message || String(error)}`;
     setStatus("Could not parse file.");
@@ -147,11 +152,14 @@ async function readSelectedFile() {
 }
 
 async function createScene() {
-  if (!parsed) return;
+  if (!parsed || busy || !owlbearReady) return;
   const options = selectedOptions();
+  const mapOnly = document.getElementById("mapOnly").checked;
+  busy = true;
+  refreshButtons();
 
   try {
-    setStatus("Preparing embedded image…");
+    mark("Preparing embedded image");
     const imageFile = await imageDataUrlToFile(parsed.image, mapName);
     const mapUpload = buildImageUpload(imageFile)
       .name(mapName)
@@ -159,9 +167,10 @@ async function createScene() {
       .offset({ x: 0, y: 0 })
       .build();
 
-    const items = buildImportedItems(parsed, options, mapName);
+    mark("Building scene items");
+    const items = mapOnly ? [] : buildImportedItems(parsed, options, mapName);
 
-    setStatus("Uploading scene to Owlbear…");
+    mark("Building scene upload");
     const scene = buildSceneUpload()
       .name(mapName)
       .gridType("SQUARE")
@@ -171,30 +180,45 @@ async function createScene() {
       .items(items)
       .build();
 
+    mark("Uploading scene to Owlbear");
     await OBR.assets.uploadScenes([scene]);
     setStatus(`Created scene "${mapName}" with ${items.length} imported item(s).`);
   } catch (error) {
     console.error(error);
-    setStatus(`Create scene failed: ${error?.message || String(error)}`);
+    setStatus(`Create scene failed during ${currentStage}:\n${describeError(error)}`);
+  } finally {
+    busy = false;
+    refreshButtons();
   }
 }
 
 async function addGeometryToCurrentScene() {
-  if (!parsed) return;
+  if (!parsed || busy || !owlbearReady) return;
   const options = selectedOptions();
+  busy = true;
+  refreshButtons();
 
   try {
-    setStatus("Adding walls and lights to current scene…");
+    mark("Checking current scene");
+    if (!(await OBR.scene.isReady())) {
+      setStatus("Open a scene before adding walls and lights.");
+      return;
+    }
+    mark("Building walls and lights");
     const items = buildImportedItems(parsed, options, mapName);
     if (!items.length) {
       setStatus("Nothing selected to import.");
       return;
     }
+    mark("Adding walls and lights to current scene");
     await OBR.scene.items.addItems(items);
     setStatus(`Added ${items.length} item(s) to the current scene.`);
   } catch (error) {
     console.error(error);
-    setStatus(`Current scene import failed: ${error?.message || String(error)}`);
+    setStatus(`Current scene import failed during ${currentStage}:\n${describeError(error)}`);
+  } finally {
+    busy = false;
+    refreshButtons();
   }
 }
 
