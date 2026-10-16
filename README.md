@@ -2,6 +2,8 @@
 
 This Owlbear Rodeo extension imports `.dd2vtt` files.
 
+**v1.3:** Walls and lights now land on Owlbear's grid (150 DPI per cell) for new scenes, instead of at the file's own pixels-per-grid, so they line up for maps exported at any resolution. **Add walls/lights to current scene** lines up with the selected map image, even if it was moved, resized or rotated. Clearer option labels, and the unused vision prototype was removed.
+
 ## What it does
 
 - Reads the embedded base64 image from the DD2VTT file.
@@ -9,6 +11,7 @@ This Owlbear Rodeo extension imports `.dd2vtt` files.
 - Creates wall items from `objects_line_of_sight`.
 - Treats closed `portals` as walls.
 - Creates Owlbear light items from `lights`.
+- To add geometry to a map already on the scene, select the map image first. With nothing selected, the map is assumed to be at its original size at the scene origin.
 
 ## Hosting and installation
 
@@ -25,11 +28,6 @@ If hosting elsewhere, update the icon and popover URLs in `manifest.json`.
 - `src/dd2vtt.js` - DD2VTT parser helpers
 - `src/style.css` - styling
 
-`background.html`, `src/background.js`, `src/vision.js`, and `src/uvtt.js`
-are an alternate metadata-based vision implementation. They are not connected
-to the manifest or the active importer; imports currently create wall and light
-items directly through `src/main.js`.
-
 ## Diagnosing an import failure
 
 In v1.2 the extension displays the failure stage and Owlbear's structured error response.
@@ -41,7 +39,7 @@ Copy the complete new error message to the developer.
 
 ## Verification
 
-Run `node --test tests/importer.test.cjs` for local importer regression checks.
+Run `node --test tests/*.test.*` for local importer and coordinate-mapping checks.
 Before release, test inside Owlbear with real DD2VTT files: scene creation,
-geometry added to an open scene, nonzero map origins, lights, large maps, and
+geometry added to an open scene (with the map selected after moving, resizing and rotating it), files exported at a pixels-per-grid other than 150, nonzero map origins, lights, large maps, and
 the map-only diagnostic. Local checks do not verify Owlbear uploads or rendering.

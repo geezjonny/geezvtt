@@ -74,5 +74,5 @@ button:disabled {
   margin: 0;
   padding-left: 18px;
 }
-\n.status { white-space: pre-wrap; max-height: 175px; overflow: auto; font-size: 0.85rem; }
+.status { white-space: pre-wrap; max-height: 175px; overflow: auto; font-size: 0.85rem; }
 .debug-option { margin: 8px 0; font-size: 0.88rem; }

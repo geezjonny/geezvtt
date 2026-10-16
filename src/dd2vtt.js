@@ -104,9 +104,40 @@ export async function imageDataUrlToFile(imageDataUrl, baseName) {
   return new File([blob], `${baseName}.${ext}`, { type: mime });
 }
 
-export function worldPoint(ddPoint, parsed) {
+/**
+ * Maps DD2VTT grid-cell coordinates to Owlbear scene coordinates.
+ *
+ * Owlbear scales every image so one image grid cell (image.grid.dpi pixels)
+ * covers one scene cell (sceneDpi units), then applies the item's position,
+ * rotation and scale around its grid offset. Without an image, the map is
+ * assumed to sit unscaled at the scene origin, as "Create new scene" places it.
+ */
+export function gridTransform(parsed, sceneDpi, image = null) {
+  const origin = parsed.mapOrigin;
+  if (!image) {
+    return {
+      point: (p) => ({ x: (p.x - origin.x) * sceneDpi, y: (p.y - origin.y) * sceneDpi }),
+      radius: (cells) => cells * sceneDpi,
+    };
+  }
+
+  // Image pixels per DD2VTT cell, in case the uploaded image was resized.
+  const resized = image.image?.width > 0 ? image.image.width / parsed.widthPixels : 1;
+  const pixelsPerCell = parsed.dpi * resized;
+  const toScene = sceneDpi / image.grid.dpi;
+  const offset = image.grid.offset ?? { x: 0, y: 0 };
+  const scaleX = image.scale.x * toScene;
+  const scaleY = image.scale.y * toScene;
+  const angle = (image.rotation * Math.PI) / 180;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+
   return {
-    x: (ddPoint.x - parsed.mapOrigin.x) * parsed.dpi,
-    y: (ddPoint.y - parsed.mapOrigin.y) * parsed.dpi,
+    point: (p) => {
+      const x = ((p.x - origin.x) * pixelsPerCell - offset.x) * scaleX;
+      const y = ((p.y - origin.y) * pixelsPerCell - offset.y) * scaleY;
+      return { x: image.position.x + x * cos - y * sin, y: image.position.y + x * sin + y * cos };
+    },
+    radius: (cells) => cells * pixelsPerCell * toScene * (Math.abs(image.scale.x) + Math.abs(image.scale.y)) / 2,
   };
 }

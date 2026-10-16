@@ -4,7 +4,10 @@ import OBR, {
   buildWall,
   buildLight,
 } from "https://esm.sh/@owlbear-rodeo/sdk@3.1.0";
-import { parseDd2vtt, imageDataUrlToFile, worldPoint } from "./dd2vtt.js";
+import { parseDd2vtt, imageDataUrlToFile, gridTransform } from "./dd2vtt.js";
+
+// Scenes from buildSceneUpload always use its default grid DPI (no setter exists).
+const NEW_SCENE_DPI = 150;
 
 const $file = document.getElementById("file");
 const $details = document.getElementById("details");
@@ -77,14 +80,14 @@ function summarize(parsedMap) {
     `Map: ${parsedMap.widthPixels} × ${parsedMap.heightPixels} px`,
     `Grid: ${parsedMap.dpi} px per cell`,
     `Origin: (${parsedMap.mapOrigin.x}, ${parsedMap.mapOrigin.y})`,
-    `line_of_sight: ${parsedMap.walls.length}`,
-    `objects_line_of_sight: ${parsedMap.objectWalls.length}`,
-    `closed portals: ${parsedMap.doors.length}`,
-    `lights: ${parsedMap.lights.length}`,
+    `Walls: ${parsedMap.walls.length}`,
+    `Object walls: ${parsedMap.objectWalls.length}`,
+    `Closed doors: ${parsedMap.doors.length}`,
+    `Lights: ${parsedMap.lights.length}`,
   ].join("\n");
 }
 
-function buildImportedItems(parsedMap, options, sourceName) {
+function buildImportedItems(parsedMap, options, sourceName, transform) {
   const items = [];
   const meta = { "com.geezvtt.dd2vtt/import": sourceName };
 
@@ -92,7 +95,7 @@ function buildImportedItems(parsedMap, options, sourceName) {
     for (const path of paths) {
       items.push(
         buildWall()
-          .points(path.map((p) => worldPoint(p, parsedMap)))
+          .points(path.map(transform.point))
           .doubleSided(true)
           .blocking(true)
           .metadata(meta)
@@ -109,9 +112,9 @@ function buildImportedItems(parsedMap, options, sourceName) {
     for (const light of parsedMap.lights) {
       items.push(
         buildLight()
-          .position(worldPoint(light.position, parsedMap))
-          .attenuationRadius(light.range * parsedMap.dpi)
-          .sourceRadius(Math.max(2, parsedMap.dpi * 0.05))
+          .position(transform.point(light.position))
+          .attenuationRadius(transform.radius(light.range))
+          .sourceRadius(Math.max(2, transform.radius(0.05)))
           .falloff(0.25)
           .metadata(meta)
           .build()
@@ -168,7 +171,8 @@ async function createScene() {
       .build();
 
     mark("Building scene items");
-    const items = mapOnly ? [] : buildImportedItems(parsed, options, mapName);
+    const items = mapOnly ? [] :
+      buildImportedItems(parsed, options, mapName, gridTransform(parsed, NEW_SCENE_DPI));
 
     mark("Building scene upload");
     const scene = buildSceneUpload()
@@ -192,6 +196,14 @@ async function createScene() {
   }
 }
 
+// null: nothing selected. undefined: the selection isn't a single image.
+async function selectedMapImage() {
+  const selection = await OBR.player.getSelection();
+  if (!selection?.length) return null;
+  const items = await OBR.scene.items.getItems(selection);
+  return items.length === 1 && items[0].type === "IMAGE" ? items[0] : undefined;
+}
+
 async function addGeometryToCurrentScene() {
   if (!parsed || busy || !owlbearReady) return;
   const options = selectedOptions();
@@ -204,15 +216,25 @@ async function addGeometryToCurrentScene() {
       setStatus("Open a scene before adding walls and lights.");
       return;
     }
+    mark("Reading the selected map image");
+    const image = await selectedMapImage();
+    if (image === undefined) {
+      setStatus("Select only the map image (or nothing) before adding walls and lights.");
+      return;
+    }
+    const sceneDpi = await OBR.scene.grid.getDpi();
     mark("Building walls and lights");
-    const items = buildImportedItems(parsed, options, mapName);
+    const items = buildImportedItems(parsed, options, mapName, gridTransform(parsed, sceneDpi, image));
     if (!items.length) {
       setStatus("Nothing selected to import.");
       return;
     }
     mark("Adding walls and lights to current scene");
     await OBR.scene.items.addItems(items);
-    setStatus(`Added ${items.length} item(s) to the current scene.`);
+    setStatus(image
+      ? `Added ${items.length} item(s), aligned to "${image.name || "the selected map"}".`
+      : `Added ${items.length} item(s), assuming the map is at its original size and position.\n` +
+        "If they don't line up, remove them, select the map image, and try again.");
   } catch (error) {
     console.error(error);
     setStatus(`Current scene import failed during ${currentStage}:\n${describeError(error)}`);

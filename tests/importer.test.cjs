@@ -7,7 +7,7 @@ const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../src/main.js'), 'utf8')
   .replace(/^import[\s\S]*?from ".*?";\r?\n/gm, '');
 
-function setup({ mapOnly = false, upload, ready = true } = {}) {
+function setup({ mapOnly = false, upload, ready = true, selection = [], sceneItems = [] } = {}) {
   const elements = new Map();
   const element = (id) => {
     if (!elements.has(id)) elements.set(id, {
@@ -18,6 +18,7 @@ function setup({ mapOnly = false, upload, ready = true } = {}) {
   };
   const uploads = [];
   let wallBuilds = 0;
+  const added = [], transforms = [];
   function chain(target = {}) {
     return new Proxy(target, { get: (_, key) => key === 'build' ? () => target :
       (value) => { target[key] = value; return chain(target); } });
@@ -30,15 +31,22 @@ function setup({ mapOnly = false, upload, ready = true } = {}) {
         uploads.push(...scenes);
         if (upload) await upload();
       } },
-      scene: { isReady: async () => ready, items: { addItems: async () => {} } },
+      scene: {
+        isReady: async () => ready,
+        grid: { getDpi: async () => 150 },
+        items: { getItems: async () => sceneItems, addItems: async (items) => { added.push(...items); } },
+      },
+      player: { getSelection: async () => selection },
     },
     imageDataUrlToFile: async () => ({}),
     buildImageUpload: () => chain(), buildSceneUpload: () => chain(),
     buildWall: () => { wallBuilds++; throw Error('bad wall'); },
+    buildLight: () => chain(),
+    gridTransform: (...args) => { transforms.push(args); return { point: (p) => p, radius: (r) => r }; },
   });
   vm.runInContext(source, context);
   vm.runInContext('parsed = {image: "data:image/png;base64,AA", dpi: 100, walls: [[{}, {}]], objectWalls: [], doors: [], lights: []}; refreshButtons();', context);
-  return { context, element, uploads, wallBuilds: () => wallBuilds };
+  return { context, element, uploads, added, transforms, wallBuilds: () => wallBuilds };
 }
 
 test('map-only bypasses geometry and blocks overlapping uploads', async () => {
@@ -84,5 +92,30 @@ test('adding geometry requires an open scene and restores controls', async () =>
   await vm.runInContext('addGeometryToCurrentScene()', app.context);
   assert.match(app.element('status').textContent, /Open a scene/);
   assert.equal(app.wallBuilds(), 0);
+  assert.equal(app.element('addGeometry').disabled, false);
+});
+
+test('new scenes place geometry on the 150 DPI scene grid', async () => {
+  const app = setup();
+  await vm.runInContext('createScene()', app.context);
+  assert.equal(app.transforms[0][1], 150);
+  assert.equal(app.transforms[0][2], undefined);
+});
+
+test('adding geometry aligns to a selected map image', async () => {
+  const image = { type: 'IMAGE', name: 'Cave' };
+  const app = setup({ selection: ['map'], sceneItems: [image] });
+  vm.runInContext('parsed.walls = []; parsed.lights = [{ position: { x: 1, y: 1 }, range: 4 }]', app.context);
+  await vm.runInContext('addGeometryToCurrentScene()', app.context);
+  assert.equal(app.transforms[0][2], image);
+  assert.equal(app.added.length, 1);
+  assert.match(app.element('status').textContent, /aligned to "Cave"/);
+});
+
+test('adding geometry refuses a selection that is not one image', async () => {
+  const app = setup({ selection: ['a', 'b'], sceneItems: [{ type: 'IMAGE' }, { type: 'IMAGE' }] });
+  await vm.runInContext('addGeometryToCurrentScene()', app.context);
+  assert.match(app.element('status').textContent, /Select only the map image/);
+  assert.equal(app.added.length, 0);
   assert.equal(app.element('addGeometry').disabled, false);
 });

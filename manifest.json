@@ -1,6 +1,6 @@
 {
   "name": "GeezVTT DD2VTT Importer",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "manifest_version": 1,
   "description": "Import DD2VTT maps with embedded images, walls, doors, and lights.",
   "author": "Jon G + ChatGPT",

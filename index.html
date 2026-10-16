@@ -18,10 +18,10 @@
 
     <section class="panel">
       <h2>Import options</h2>
-      <label><input id="importWalls" type="checkbox" checked /> line_of_sight</label>
-      <label><input id="importObjects" type="checkbox" checked /> objects_line_of_sight</label>
-      <label><input id="importDoors" type="checkbox" checked /> closed portals as walls</label>
-      <label><input id="importLights" type="checkbox" checked /> lights</label>
+      <label><input id="importWalls" type="checkbox" checked /> Walls</label>
+      <label><input id="importObjects" type="checkbox" checked /> Object walls (pillars, furniture…)</label>
+      <label><input id="importDoors" type="checkbox" checked /> Closed doors (added as walls)</label>
+      <label><input id="importLights" type="checkbox" checked /> Lights</label>
     </section>
 
     <section class="panel">
@@ -43,8 +43,8 @@
       <h2>Notes</h2>
       <ul>
         <li><strong>Create new scene</strong> uploads the embedded map image and places walls/lights into the new scene.</li>
-        <li><strong>Add walls/lights to current scene</strong> does not place the base map. Use it if your map is already on the scene.</li>
-        <li>Lights use DD2VTT range converted from grid cells to Owlbear pixels.</li>
+        <li><strong>Add walls/lights to current scene</strong> does not place the base map. Use it if your map is already on the scene. <strong>Select the map image first</strong> so walls line up even if it was moved, resized or rotated.</li>
+        <li>Light ranges are converted from grid cells to Owlbear's grid.</li>
       </ul>
     </section>
   </main>
